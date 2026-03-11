@@ -2,10 +2,13 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Role } from '../../common/enums/role.enum';
+import { Store } from '../../stores/entities/store.entity';
 
 @Entity('users')
 export class User {
@@ -21,8 +24,12 @@ export class User {
   @Column()
   password: string;
 
-  @Column({ name: 'store_id', length: 50 })
+  @Column({ name: 'store_id' })
   storeId: string;
+
+  @ManyToOne(() => Store, (store) => store.users, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
 
   @Column({ type: 'enum', enum: Role, default: Role.SELLER })
   role: Role;

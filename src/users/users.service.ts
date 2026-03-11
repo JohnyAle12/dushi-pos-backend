@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
-import { STORES } from '../common/constants/stores.constant';
+import { Store } from '../stores/entities/store.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
@@ -16,6 +16,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    @InjectRepository(Store)
+    private readonly storesRepository: Repository<Store>,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<Omit<User, 'password'>> {
@@ -24,12 +26,7 @@ export class UsersService {
       throw new ConflictException('A user with this email already exists');
     }
 
-    const store = STORES.find((s) => s.id === createUserDto.storeId);
-    if (!store) {
-      throw new NotFoundException(
-        `Store with id "${createUserDto.storeId}" not found`,
-      );
-    }
+    await this.validateStore(createUserDto.storeId);
 
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
@@ -47,13 +44,16 @@ export class UsersService {
   }
 
   async findAll(): Promise<Omit<User, 'password'>[]> {
-    const users = await this.usersRepository.find();
+    const users = await this.usersRepository.find({ relations: ['store'] });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     return users.map(({ password, ...user }) => user);
   }
 
   async findOne(id: string): Promise<Omit<User, 'password'>> {
-    const user = await this.usersRepository.findOneBy({ id });
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      relations: ['store'],
+    });
     if (!user) {
       throw new NotFoundException(`User with id "${id}" not found`);
     }
@@ -63,14 +63,20 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOneBy({ email });
+    return this.usersRepository.findOne({
+      where: { email },
+      relations: ['store'],
+    });
   }
 
   async update(
     id: string,
     updateUserDto: UpdateUserDto,
   ): Promise<Omit<User, 'password'>> {
-    const user = await this.usersRepository.findOneBy({ id });
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      relations: ['store'],
+    });
     if (!user) {
       throw new NotFoundException(`User with id "${id}" not found`);
     }
@@ -83,12 +89,7 @@ export class UsersService {
     }
 
     if (updateUserDto.storeId) {
-      const store = STORES.find((s) => s.id === updateUserDto.storeId);
-      if (!store) {
-        throw new NotFoundException(
-          `Store with id "${updateUserDto.storeId}" not found`,
-        );
-      }
+      await this.validateStore(updateUserDto.storeId);
     }
 
     if (updateUserDto.password) {
@@ -110,5 +111,12 @@ export class UsersService {
       throw new NotFoundException(`User with id "${id}" not found`);
     }
     await this.usersRepository.remove(user);
+  }
+
+  private async validateStore(storeId: string): Promise<void> {
+    const store = await this.storesRepository.findOneBy({ id: storeId });
+    if (!store) {
+      throw new NotFoundException(`Store with id "${storeId}" not found`);
+    }
   }
 }

@@ -1,7 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { STORES } from '../common/constants/stores.constant';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 
@@ -28,14 +27,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const store = STORES.find((s) => s.id === user.storeId);
-
     const payload = {
       sub: user.id,
       name: user.name,
       email: user.email,
       storeId: user.storeId,
-      storeName: store?.name,
+      storeName: user.store?.name,
       role: user.role,
     };
 
@@ -46,7 +43,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         storeId: user.storeId,
-        storeName: store?.name,
+        storeName: user.store?.name,
         role: user.role,
       },
     };
