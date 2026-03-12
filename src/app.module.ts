@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { CustomersModule } from './customers/customers.module';
 import { ProductsModule } from './products/products.module';
 import { PurchasesModule } from './purchases/purchases.module';
+import { SalesModule } from './sales/sales.module';
 import { StoresModule } from './stores/stores.module';
 import { UsersModule } from './users/users.module';
 
@@ -32,6 +33,7 @@ import { UsersModule } from './users/users.module';
     CustomersModule,
     ProductsModule,
     PurchasesModule,
+    SalesModule,
     AuthModule,
   ],
   controllers: [AppController],
