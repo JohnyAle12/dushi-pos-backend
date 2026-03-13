@@ -13,6 +13,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateStockDto } from './dto/update-stock.dto';
 import { ProductsService } from './products.service';
 
 @UseGuards(JwtAuthGuard)
@@ -38,6 +39,16 @@ export class ProductsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
     return this.productsService.update(id, updateProductDto);
+  }
+
+  @Patch(':id/stock')
+  updateStock(@Param('id') id: string, @Body() updateStockDto: UpdateStockDto) {
+    return this.productsService.updateStock(id, updateStockDto);
+  }
+
+  @Get(':id/transactions')
+  findTransactions(@Param('id') id: string) {
+    return this.productsService.findTransactions(id);
   }
 
   @Delete(':id')
