@@ -40,6 +40,6 @@ export class PurchasesService {
 
   async remove(id: string): Promise<void> {
     const purchase = await this.findOne(id);
-    await this.purchasesRepository.remove(purchase);
+    await this.purchasesRepository.softRemove(purchase);
   }
 }
