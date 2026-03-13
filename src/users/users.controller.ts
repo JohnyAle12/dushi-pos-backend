@@ -8,10 +8,12 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
@@ -33,6 +35,19 @@ export class UsersController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
+  }
+
+  @Patch('password')
+  @HttpCode(HttpStatus.OK)
+  async updatePassword(
+    @Req() req: any,
+    @Body() updatePasswordDto: UpdatePasswordDto,
+  ) {
+    await this.usersService.updatePassword(
+      req.user.id,
+      updatePasswordDto.password,
+    );
+    return { message: 'Password updated successfully' };
   }
 
   @Patch(':id')

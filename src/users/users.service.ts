@@ -105,6 +105,17 @@ export class UsersService {
     return result;
   }
 
+  async updatePassword(userId: string, newPassword: string): Promise<void> {
+    const user = await this.usersRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException(`User with id "${userId}" not found`);
+    }
+
+    const salt = await bcrypt.genSalt();
+    user.password = await bcrypt.hash(newPassword, salt);
+    await this.usersRepository.save(user);
+  }
+
   async remove(id: string): Promise<void> {
     const user = await this.usersRepository.findOneBy({ id });
     if (!user) {
