@@ -43,7 +43,6 @@ export class Sale {
 
   @OneToMany(() => SaleItem, (item) => item.sale, {
     cascade: true,
-    eager: true,
   })
   items: SaleItem[];
 

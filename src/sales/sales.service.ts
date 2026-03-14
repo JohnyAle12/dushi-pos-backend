@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -21,8 +20,6 @@ export class SalesService {
     private readonly salesRepository: Repository<Sale>,
     @InjectRepository(SaleItem)
     private readonly saleItemsRepository: Repository<SaleItem>,
-    @InjectRepository(Product)
-    private readonly productsRepository: Repository<Product>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -68,13 +65,13 @@ export class SalesService {
   }
 
   async findAll(): Promise<Sale[]> {
-    return this.salesRepository.find({ relations: ['user'] });
+    return this.salesRepository.find();
   }
 
   async findOne(id: string): Promise<Sale> {
     const sale = await this.salesRepository.findOne({
       where: { id },
-      relations: ['user'],
+      relations: ['user', 'items'],
     });
     if (!sale) {
       throw new NotFoundException(`Sale with id "${id}" not found`);
