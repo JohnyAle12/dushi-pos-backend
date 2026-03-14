@@ -34,6 +34,19 @@ export class SalesController {
     );
   }
 
+  @Get('totals')
+  getTotals(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('groupBy') groupBy?: 'day' | 'month',
+  ) {
+    return this.salesService.getTotals(
+      startDate,
+      endDate,
+      groupBy === 'month' ? 'month' : 'day',
+    );
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.salesService.findOne(id);

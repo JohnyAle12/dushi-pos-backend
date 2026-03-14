@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -104,6 +105,74 @@ export class SalesService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  async getTotals(
+    startDate: string,
+    endDate: string,
+    groupBy: 'day' | 'month',
+  ): Promise<{
+    data: { period: string; total: number; count: number }[];
+    summary: { total: number; count: number };
+  }> {
+    if (!startDate || !endDate) {
+      throw new BadRequestException(
+        'startDate and endDate are required (format: YYYY-MM-DD)',
+      );
+    }
+    if (startDate > endDate) {
+      throw new BadRequestException(
+        'startDate must be before or equal to endDate',
+      );
+    }
+
+    const qb = this.salesRepository
+      .createQueryBuilder('sale')
+      .select('SUM(sale.total)', 'total')
+      .addSelect('COUNT(sale.id)', 'count')
+      .where('DATE(sale.created_at) >= :startDate', { startDate })
+      .andWhere('DATE(sale.created_at) <= :endDate', { endDate });
+
+    if (groupBy === 'day') {
+      qb.addSelect('DATE(sale.created_at)', 'period')
+        .groupBy('DATE(sale.created_at)')
+        .orderBy('period', 'ASC');
+    } else {
+      qb.addSelect("DATE_FORMAT(sale.created_at, '%Y-%m')", 'period')
+        .groupBy("DATE_FORMAT(sale.created_at, '%Y-%m')")
+        .orderBy('period', 'ASC');
+    }
+
+    const data = await qb.getRawMany<{
+      period: string;
+      total: string;
+      count: string;
+    }>();
+
+    const summaryQb = this.salesRepository
+      .createQueryBuilder('sale')
+      .select('SUM(sale.total)', 'total')
+      .addSelect('COUNT(sale.id)', 'count')
+      .where('DATE(sale.created_at) >= :startDate', { startDate })
+      .andWhere('DATE(sale.created_at) <= :endDate', { endDate });
+    const summaryRow = await summaryQb.getRawOne<{
+      total: string | null;
+      count: string;
+    }>();
+
+    const summary = {
+      total: summaryRow?.total ? Number(summaryRow.total) : 0,
+      count: summaryRow?.count ? Number(summaryRow.count) : 0,
+    };
+
+    return {
+      data: data.map((row) => ({
+        period: row.period,
+        total: Number(row.total),
+        count: Number(row.count),
+      })),
+      summary,
     };
   }
 
