@@ -64,8 +64,47 @@ export class SalesService {
     });
   }
 
-  async findAll(): Promise<Sale[]> {
-    return this.salesRepository.find();
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<{
+    data: Sale[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    const [sales, total] = await this.salesRepository.findAndCount({
+      relations: ['items', 'items.product'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    const data = sales.map((sale) => ({
+      ...sale,
+      items: sale.items?.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        total: item.total,
+        product: item.product
+          ? {
+              name: item.product.name,
+              price: item.product.price,
+              description: item.product.description,
+              category: item.product.category,
+            }
+          : null,
+      })),
+    })) as Sale[];
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findOne(id: string): Promise<Sale> {
