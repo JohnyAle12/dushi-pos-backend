@@ -1,11 +1,14 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { StockMovementType } from '../common/enums/stock-movement-type.enum';
 import { Product } from '../products/entities/product.entity';
+import { StockTransaction } from '../products/entities/stock-transaction.entity';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { SaleItem } from './entities/sale-item.entity';
@@ -34,8 +37,29 @@ export class SalesService {
             `Product with id "${item.productId}" not found`,
           );
         }
-        product.stock -= item.quantity;
-        await manager.save(product);
+        if (product.trackInventory) {
+          const previousStock = product.stock;
+          const newStock = previousStock - item.quantity;
+
+          // if (newStock < 0) {
+          //   throw new BadRequestException(
+          //     `Insufficient stock for "${product.name}". Current: ${previousStock}, requested: ${item.quantity}`,
+          //   );
+          // }
+
+          product.stock = newStock;
+          await manager.save(Product, product);
+
+          const transaction = manager.create(StockTransaction, {
+            productId: product.id,
+            type: StockMovementType.OUT,
+            quantity: item.quantity,
+            previousStock,
+            newStock,
+            reason: `Venta`,
+          });
+          await manager.save(StockTransaction, transaction);
+        }
       }
 
       const sale = manager.create(Sale, createSaleDto);
@@ -70,10 +94,12 @@ export class SalesService {
       sale.items = newItems;
     }
 
-    if (updateSaleDto.subtotal !== undefined) sale.subtotal = updateSaleDto.subtotal;
+    if (updateSaleDto.subtotal !== undefined)
+      sale.subtotal = updateSaleDto.subtotal;
     if (updateSaleDto.tax !== undefined) sale.tax = updateSaleDto.tax;
     if (updateSaleDto.total !== undefined) sale.total = updateSaleDto.total;
-    if (updateSaleDto.paymentMethod) sale.paymentMethod = updateSaleDto.paymentMethod;
+    if (updateSaleDto.paymentMethod)
+      sale.paymentMethod = updateSaleDto.paymentMethod;
     if (updateSaleDto.userId) sale.userId = updateSaleDto.userId;
 
     return this.salesRepository.save(sale);
