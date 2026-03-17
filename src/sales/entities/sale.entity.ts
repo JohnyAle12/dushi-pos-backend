@@ -7,6 +7,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  Unique,
   UpdateDateColumn,
 } from 'typeorm';
 import { PaymentMethod } from '../../common/enums/payment-method.enum';
@@ -14,6 +15,7 @@ import { User } from '../../users/entities/user.entity';
 import { SaleItem } from './sale-item.entity';
 
 @Entity('sales')
+@Unique('UQ_sale_number_per_prefix', ['prefix', 'number'])
 export class Sale {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -36,6 +38,12 @@ export class Sale {
 
   @Column({ name: 'user_id' })
   userId: string;
+
+  @Column({ name: 'prefix', length: 20, default: 'FV' })
+  prefix: string;
+
+  @Column({ name: 'number', type: 'int', nullable: true })
+  number: number | null;
 
   @ManyToOne(() => User, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'user_id' })

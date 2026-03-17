@@ -5,7 +5,9 @@ import {
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -27,6 +29,11 @@ export class CreateSaleDto {
 
   @IsEnum(PaymentMethod)
   paymentMethod: PaymentMethod;
+
+  @IsString()
+  @MaxLength(20)
+  @IsOptional()
+  prefix?: string;
 
   @IsString()
   @IsNotEmpty()

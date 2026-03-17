@@ -90,6 +90,7 @@ export class SeedSalesService {
         tax,
         total,
         paymentMethod: pick(PAYMENT_METHODS),
+        prefix: 'FV',
         userId: pick(users).id,
         items,
       };

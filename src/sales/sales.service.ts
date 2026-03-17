@@ -33,6 +33,17 @@ export class SalesService {
 
   async create(createSaleDto: CreateSaleDto): Promise<Sale> {
     return this.dataSource.transaction(async (manager) => {
+      const prefix = createSaleDto.prefix?.trim() || 'FV';
+
+      const { max } = (await manager
+        .getRepository(Sale)
+        .createQueryBuilder('sale')
+        .where('sale.prefix = :prefix', { prefix })
+        .select('MAX(sale.number)', 'max')
+        .getRawOne<{ max: string | null }>()) ?? { max: null };
+
+      const nextNumber = (max ? Number(max) : 0) + 1;
+
       for (const item of createSaleDto.items) {
         const product = await manager.findOneBy(Product, {
           id: item.productId,
@@ -67,7 +78,11 @@ export class SalesService {
         }
       }
 
-      const sale = manager.create(Sale, createSaleDto);
+      const sale = manager.create(Sale, {
+        ...createSaleDto,
+        prefix,
+        number: nextNumber,
+      });
       return manager.save(sale);
     });
   }
