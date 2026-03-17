@@ -1,3 +1,6 @@
+// Zona horaria para fechas en BD (UTC-5 Colombia). Debe ir antes de otros imports.
+process.env.TZ = process.env.TZ || 'America/Bogota';
+
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';

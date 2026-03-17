@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { DatabaseTimezoneService } from './database-timezone.service';
 import { AuthModule } from './auth/auth.module';
 import { CustomersModule } from './customers/customers.module';
 import { ProductsModule } from './products/products.module';
@@ -27,6 +28,8 @@ import { UsersModule } from './users/users.module';
         database: config.get<string>('DB_NAME', 'dushi_pos'),
         autoLoadEntities: true,
         synchronize: true,
+        // Offset numérico para MySQL; también se usa TZ en main.ts para Node
+        timezone: config.get<string>('DB_TIMEZONE', '-05:00'),
       }),
     }),
     StoresModule,
@@ -39,6 +42,6 @@ import { UsersModule } from './users/users.module';
     SeedModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, DatabaseTimezoneService],
 })
 export class AppModule {}
