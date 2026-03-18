@@ -30,6 +30,16 @@ export class CreateSaleDto {
   @IsEnum(PaymentMethod)
   paymentMethod: PaymentMethod;
 
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  amountPaid?: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  change?: number;
+
   @IsString()
   @MaxLength(20)
   @IsOptional()

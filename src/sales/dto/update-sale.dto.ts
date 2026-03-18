@@ -32,6 +32,16 @@ export class UpdateSaleDto {
   @IsOptional()
   paymentMethod?: PaymentMethod;
 
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  amountPaid?: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  change?: number;
+
   @IsString()
   @IsOptional()
   userId?: string;

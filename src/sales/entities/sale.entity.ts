@@ -45,6 +45,24 @@ export class Sale {
   @Column({ name: 'number', type: 'int', nullable: true })
   number: number | null;
 
+  @Column({
+    name: 'amount_paid',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  amountPaid: number | null;
+
+  @Column({
+    name: 'change_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  change: number | null;
+
   @ManyToOne(() => User, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'user_id' })
   user: User;

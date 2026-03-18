@@ -277,6 +277,9 @@ export class SalesService {
     if (updateSaleDto.total !== undefined) sale.total = updateSaleDto.total;
     if (updateSaleDto.paymentMethod)
       sale.paymentMethod = updateSaleDto.paymentMethod;
+    if (updateSaleDto.amountPaid !== undefined)
+      sale.amountPaid = updateSaleDto.amountPaid;
+    if (updateSaleDto.change !== undefined) sale.change = updateSaleDto.change;
     if (updateSaleDto.userId) sale.userId = updateSaleDto.userId;
 
     return this.salesRepository.save(sale);
