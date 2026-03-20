@@ -16,6 +16,7 @@ import { StockMovementType } from '../common/enums/stock-movement-type.enum';
 import { Product } from '../products/entities/product.entity';
 import { StockTransaction } from '../products/entities/stock-transaction.entity';
 import { PaymentMethod } from '../common/enums/payment-method.enum';
+import { Customer } from '../customers/entities/customer.entity';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { SaleItem } from './entities/sale-item.entity';
@@ -28,6 +29,8 @@ export class SalesService {
     private readonly salesRepository: Repository<Sale>,
     @InjectRepository(SaleItem)
     private readonly saleItemsRepository: Repository<SaleItem>,
+    @InjectRepository(Customer)
+    private readonly customersRepository: Repository<Customer>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -75,6 +78,17 @@ export class SalesService {
             reason: `Venta`,
           });
           await manager.save(StockTransaction, transaction);
+        }
+      }
+
+      if (createSaleDto.customerId) {
+        const customer = await manager.findOne(Customer, {
+          where: { id: createSaleDto.customerId },
+        });
+        if (!customer) {
+          throw new NotFoundException(
+            `Customer with id "${createSaleDto.customerId}" not found`,
+          );
         }
       }
 
@@ -126,7 +140,7 @@ export class SalesService {
 
     const [sales, total] = await this.salesRepository.findAndCount({
       where: Object.keys(where).length ? where : undefined,
-      relations: ['items', 'items.product'],
+      relations: ['items', 'items.product', 'customer'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -251,7 +265,7 @@ export class SalesService {
   async findOne(id: string): Promise<Sale> {
     const sale = await this.salesRepository.findOne({
       where: { id },
-      relations: ['user', 'items'],
+      relations: ['user', 'items', 'customer'],
     });
     if (!sale) {
       throw new NotFoundException(`Sale with id "${id}" not found`);
@@ -281,6 +295,22 @@ export class SalesService {
       sale.amountPaid = updateSaleDto.amountPaid;
     if (updateSaleDto.change !== undefined) sale.change = updateSaleDto.change;
     if (updateSaleDto.userId) sale.userId = updateSaleDto.userId;
+
+    if (updateSaleDto.customerId !== undefined) {
+      if (updateSaleDto.customerId === null) {
+        sale.customerId = null;
+      } else {
+        const customer = await this.customersRepository.findOneBy({
+          id: updateSaleDto.customerId,
+        });
+        if (!customer) {
+          throw new NotFoundException(
+            `Customer with id "${updateSaleDto.customerId}" not found`,
+          );
+        }
+        sale.customerId = updateSaleDto.customerId;
+      }
+    }
 
     return this.salesRepository.save(sale);
   }

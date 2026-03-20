@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { PaymentMethod } from '../../common/enums/payment-method.enum';
+import { Customer } from '../../customers/entities/customer.entity';
 import { User } from '../../users/entities/user.entity';
 import { SaleItem } from './sale-item.entity';
 
@@ -39,6 +40,9 @@ export class Sale {
   @Column({ name: 'user_id' })
   userId: string;
 
+  @Column({ name: 'customer_id', nullable: true })
+  customerId: string | null;
+
   @Column({ name: 'prefix', length: 20, default: 'FV' })
   prefix: string;
 
@@ -66,6 +70,10 @@ export class Sale {
   @ManyToOne(() => User, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  @ManyToOne(() => Customer, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'customer_id' })
+  customer: Customer | null;
 
   @OneToMany(() => SaleItem, (item) => item.sale, {
     cascade: true,

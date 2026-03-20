@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Customer } from '../customers/entities/customer.entity';
 import { Product } from '../products/entities/product.entity';
 import { StockTransaction } from '../products/entities/stock-transaction.entity';
 import { SaleItem } from './entities/sale-item.entity';
@@ -8,7 +9,15 @@ import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Sale, SaleItem, Product, StockTransaction])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Sale,
+      SaleItem,
+      Product,
+      StockTransaction,
+      Customer,
+    ]),
+  ],
   controllers: [SalesController],
   providers: [SalesService],
   exports: [SalesService],

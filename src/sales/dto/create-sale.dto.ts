@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
   ValidateNested,
@@ -48,6 +49,10 @@ export class CreateSaleDto {
   @IsString()
   @IsNotEmpty()
   userId: string;
+
+  @IsUUID('4')
+  @IsOptional()
+  customerId?: string;
 
   @IsArray()
   @ArrayMinSize(1)

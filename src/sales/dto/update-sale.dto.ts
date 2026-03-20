@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -45,6 +46,10 @@ export class UpdateSaleDto {
   @IsString()
   @IsOptional()
   userId?: string;
+
+  @IsUUID('4')
+  @IsOptional()
+  customerId?: string | null;
 
   @IsArray()
   @ArrayMinSize(1)
