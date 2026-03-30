@@ -3,9 +3,12 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Store } from '../../stores/entities/store.entity';
 
 export interface PurchaseItem {
   name: string;
@@ -17,6 +20,13 @@ export interface PurchaseItem {
 export class Purchase {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'store_id' })
+  storeId: string;
+
+  @ManyToOne(() => Store, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
 
   @Column({ type: 'date' })
   date: string;

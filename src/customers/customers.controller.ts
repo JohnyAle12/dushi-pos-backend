@@ -8,9 +8,11 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AuthUser } from '../common/interfaces/auth-user.interface';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomersService } from './customers.service';
@@ -21,36 +23,44 @@ export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Post()
-  create(@Body() createCustomerDto: CreateCustomerDto) {
-    return this.customersService.create(createCustomerDto);
+  create(
+    @Req() req: { user: AuthUser },
+    @Body() createCustomerDto: CreateCustomerDto,
+  ) {
+    return this.customersService.create(createCustomerDto, req.user.storeId);
   }
 
   @Get()
-  findAll() {
-    return this.customersService.findAll();
+  findAll(@Req() req: { user: AuthUser }) {
+    return this.customersService.findAll(req.user.storeId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.customersService.findOne(id);
+  findOne(@Req() req: { user: AuthUser }, @Param('id') id: string) {
+    return this.customersService.findOne(id, req.user.storeId);
   }
 
   @Patch(':id')
   update(
+    @Req() req: { user: AuthUser },
     @Param('id') id: string,
     @Body() updateCustomerDto: UpdateCustomerDto,
   ) {
-    return this.customersService.update(id, updateCustomerDto);
+    return this.customersService.update(
+      id,
+      req.user.storeId,
+      updateCustomerDto,
+    );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string) {
-    return this.customersService.remove(id);
+  remove(@Req() req: { user: AuthUser }, @Param('id') id: string) {
+    return this.customersService.remove(id, req.user.storeId);
   }
 
   @Patch(':id/restore')
-  restore(@Param('id') id: string) {
-    return this.customersService.restore(id);
+  restore(@Req() req: { user: AuthUser }, @Param('id') id: string) {
+    return this.customersService.restore(id, req.user.storeId);
   }
 }

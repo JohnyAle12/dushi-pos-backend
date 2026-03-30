@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaymentMethod } from '../common/enums/payment-method.enum';
+import { AuthUser } from '../common/interfaces/auth-user.interface';
 import { Product } from '../products/entities/product.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateSaleDto } from '../sales/dto/create-sale.dto';
@@ -35,19 +36,27 @@ export class SeedSalesService {
   ) {}
 
   async run(count = 30): Promise<void> {
-    const users = await this.usersRepository.find({ select: ['id'] });
-    const products = await this.productsRepository.find({
-      select: ['id', 'price'],
+    const users = await this.usersRepository.find({
+      select: ['id', 'storeId'],
     });
 
     if (users.length === 0) {
       throw new Error('No users found. Create users first.');
     }
-    if (products.length === 0) {
-      throw new Error('No products found. Create products first.');
-    }
 
     for (let i = 0; i < count; i++) {
+      const user = pick(users);
+      const products = await this.productsRepository.find({
+        where: { storeId: user.storeId },
+        select: ['id', 'price'],
+      });
+
+      if (products.length === 0) {
+        throw new Error(
+          'No products found for the selected user store. Create products for that store first.',
+        );
+      }
+
       const numItems = randomInt(1, 4);
       const selectedProducts: { product: Product; quantity: number }[] = [];
       const usedIds = new Set<string>();
@@ -91,11 +100,17 @@ export class SeedSalesService {
         total,
         paymentMethod: pick(PAYMENT_METHODS),
         prefix: 'FV',
-        userId: pick(users).id,
         items,
       };
 
-      await this.salesService.create(createSaleDto);
+      const auth: AuthUser = {
+        id: user.id,
+        storeId: user.storeId,
+        name: '',
+        email: '',
+        role: '',
+      };
+      await this.salesService.create(createSaleDto, auth);
     }
   }
 }

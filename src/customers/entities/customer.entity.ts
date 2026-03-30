@@ -3,15 +3,27 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
+  Unique,
   UpdateDateColumn,
 } from 'typeorm';
 import { IdentificationType } from '../../common/enums/identification-type.enum';
+import { Store } from '../../stores/entities/store.entity';
 
 @Entity('customers')
+@Unique('UQ_customer_ident_store', ['storeId', 'identificationNumber'])
 export class Customer {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'store_id' })
+  storeId: string;
+
+  @ManyToOne(() => Store, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
 
   @Column({ length: 150 })
   name: string;
@@ -23,7 +35,7 @@ export class Customer {
   })
   identificationType: IdentificationType;
 
-  @Column({ name: 'identification_number', unique: true, length: 50 })
+  @Column({ name: 'identification_number', length: 50 })
   identificationNumber: string;
 
   @Column({ length: 255, nullable: true })

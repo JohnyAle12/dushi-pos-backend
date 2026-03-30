@@ -12,14 +12,22 @@ import {
 } from 'typeorm';
 import { PaymentMethod } from '../../common/enums/payment-method.enum';
 import { Customer } from '../../customers/entities/customer.entity';
+import { Store } from '../../stores/entities/store.entity';
 import { User } from '../../users/entities/user.entity';
 import { SaleItem } from './sale-item.entity';
 
 @Entity('sales')
-@Unique('UQ_sale_number_per_prefix', ['prefix', 'number'])
+@Unique('UQ_sale_number_per_store', ['storeId', 'prefix', 'number'])
 export class Sale {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'store_id' })
+  storeId: string;
+
+  @ManyToOne(() => Store, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   subtotal: number;

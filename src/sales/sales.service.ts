@@ -16,7 +16,9 @@ import { StockMovementType } from '../common/enums/stock-movement-type.enum';
 import { Product } from '../products/entities/product.entity';
 import { StockTransaction } from '../products/entities/stock-transaction.entity';
 import { PaymentMethod } from '../common/enums/payment-method.enum';
+import { AuthUser } from '../common/interfaces/auth-user.interface';
 import { Customer } from '../customers/entities/customer.entity';
+import { User } from '../users/entities/user.entity';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { SaleItem } from './entities/sale-item.entity';
@@ -31,10 +33,12 @@ export class SalesService {
     private readonly saleItemsRepository: Repository<SaleItem>,
     @InjectRepository(Customer)
     private readonly customersRepository: Repository<Customer>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
     private readonly dataSource: DataSource,
   ) {}
 
-  async create(createSaleDto: CreateSaleDto): Promise<Sale> {
+  async create(createSaleDto: CreateSaleDto, auth: AuthUser): Promise<Sale> {
     return this.dataSource.transaction(async (manager) => {
       const prefix = createSaleDto.prefix?.trim() || 'FV';
 
@@ -42,14 +46,15 @@ export class SalesService {
         .getRepository(Sale)
         .createQueryBuilder('sale')
         .where('sale.prefix = :prefix', { prefix })
+        .andWhere('sale.store_id = :storeId', { storeId: auth.storeId })
         .select('MAX(sale.number)', 'max')
         .getRawOne<{ max: string | null }>()) ?? { max: null };
 
       const nextNumber = (max ? Number(max) : 0) + 1;
 
       for (const item of createSaleDto.items) {
-        const product = await manager.findOneBy(Product, {
-          id: item.productId,
+        const product = await manager.findOne(Product, {
+          where: { id: item.productId, storeId: auth.storeId },
         });
         if (!product) {
           throw new NotFoundException(
@@ -83,7 +88,7 @@ export class SalesService {
 
       if (createSaleDto.customerId) {
         const customer = await manager.findOne(Customer, {
-          where: { id: createSaleDto.customerId },
+          where: { id: createSaleDto.customerId, storeId: auth.storeId },
         });
         if (!customer) {
           throw new NotFoundException(
@@ -96,12 +101,15 @@ export class SalesService {
         ...createSaleDto,
         prefix,
         number: nextNumber,
+        userId: auth.id,
+        storeId: auth.storeId,
       });
       return manager.save(sale);
     });
   }
 
   async findAll(
+    storeId: string,
     page = 1,
     limit = 20,
     startDate?: string,
@@ -111,7 +119,7 @@ export class SalesService {
     data: Sale[];
     meta: { total: number; page: number; limit: number; totalPages: number };
   }> {
-    const where: any = {};
+    const where: Record<string, unknown> = { storeId };
     if (startDate && endDate) {
       if (startDate > endDate) {
         throw new BadRequestException(
@@ -139,7 +147,7 @@ export class SalesService {
     }
 
     const [sales, total] = await this.salesRepository.findAndCount({
-      where: Object.keys(where).length ? where : undefined,
+      where,
       relations: ['items', 'items.product', 'customer'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
@@ -176,6 +184,7 @@ export class SalesService {
   }
 
   async getTotals(
+    storeId: string,
     startDate: string,
     endDate: string,
     groupBy: 'day' | 'month',
@@ -207,7 +216,8 @@ export class SalesService {
       .createQueryBuilder('sale')
       .select('SUM(sale.total)', 'total')
       .addSelect('COUNT(sale.id)', 'count')
-      .where('DATE(sale.created_at) >= :startDate', { startDate })
+      .where('sale.store_id = :storeId', { storeId })
+      .andWhere('DATE(sale.created_at) >= :startDate', { startDate })
       .andWhere('DATE(sale.created_at) <= :endDate', { endDate });
 
     if (paymentMethod) {
@@ -234,7 +244,8 @@ export class SalesService {
       .createQueryBuilder('sale')
       .select('SUM(sale.total)', 'total')
       .addSelect('COUNT(sale.id)', 'count')
-      .where('DATE(sale.created_at) >= :startDate', { startDate })
+      .where('sale.store_id = :storeId', { storeId })
+      .andWhere('DATE(sale.created_at) >= :startDate', { startDate })
       .andWhere('DATE(sale.created_at) <= :endDate', { endDate });
 
     if (paymentMethod) {
@@ -263,6 +274,7 @@ export class SalesService {
   }
 
   async getSalesByProduct(
+    storeId: string,
     startDate?: string,
     endDate?: string,
     paymentMethod?: string,
@@ -298,7 +310,8 @@ export class SalesService {
       .addSelect('product.category', 'category')
       .addSelect('SUM(item.quantity)', 'quantitySold')
       .addSelect('SUM(item.total)', 'totalAmount')
-      .where('sale.deleted_at IS NULL')
+      .where('sale.store_id = :storeId', { storeId })
+      .andWhere('sale.deleted_at IS NULL')
       .andWhere('item.deleted_at IS NULL')
       .groupBy('product.id');
 
@@ -342,9 +355,9 @@ export class SalesService {
     };
   }
 
-  async findOne(id: string): Promise<Sale> {
+  async findOne(id: string, storeId: string): Promise<Sale> {
     const sale = await this.salesRepository.findOne({
-      where: { id },
+      where: { id, storeId },
       relations: ['user', 'items', 'customer'],
     });
     if (!sale) {
@@ -353,8 +366,12 @@ export class SalesService {
     return sale;
   }
 
-  async update(id: string, updateSaleDto: UpdateSaleDto): Promise<Sale> {
-    const sale = await this.findOne(id);
+  async update(
+    id: string,
+    storeId: string,
+    updateSaleDto: UpdateSaleDto,
+  ): Promise<Sale> {
+    const sale = await this.findOne(id, storeId);
 
     if (updateSaleDto.items) {
       await this.saleItemsRepository.delete({ saleId: id });
@@ -374,7 +391,6 @@ export class SalesService {
     if (updateSaleDto.amountPaid !== undefined)
       sale.amountPaid = updateSaleDto.amountPaid;
     if (updateSaleDto.change !== undefined) sale.change = updateSaleDto.change;
-    if (updateSaleDto.userId) sale.userId = updateSaleDto.userId;
 
     if (updateSaleDto.customerId !== undefined) {
       if (updateSaleDto.customerId === null) {
@@ -382,6 +398,7 @@ export class SalesService {
       } else {
         const customer = await this.customersRepository.findOneBy({
           id: updateSaleDto.customerId,
+          storeId,
         });
         if (!customer) {
           throw new NotFoundException(
@@ -392,17 +409,30 @@ export class SalesService {
       }
     }
 
+    if (updateSaleDto.userId) {
+      const user = await this.usersRepository.findOneBy({
+        id: updateSaleDto.userId,
+        storeId,
+      });
+      if (!user) {
+        throw new NotFoundException(
+          `User with id "${updateSaleDto.userId}" not found`,
+        );
+      }
+      sale.userId = updateSaleDto.userId;
+    }
+
     return this.salesRepository.save(sale);
   }
 
-  async remove(id: string): Promise<void> {
-    const sale = await this.findOne(id);
+  async remove(id: string, storeId: string): Promise<void> {
+    const sale = await this.findOne(id, storeId);
     await this.salesRepository.softRemove(sale);
   }
 
-  async restore(id: string): Promise<Sale> {
+  async restore(id: string, storeId: string): Promise<Sale> {
     const sale = await this.salesRepository.findOne({
-      where: { id },
+      where: { id, storeId },
       withDeleted: true,
     });
     if (!sale) {
@@ -417,6 +447,6 @@ export class SalesService {
       .restore()
       .where('sale_id = :id', { id })
       .execute();
-    return this.findOne(id);
+    return this.findOne(id, storeId);
   }
 }

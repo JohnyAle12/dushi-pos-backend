@@ -16,22 +16,29 @@ export class CustomersService {
     private readonly customersRepository: Repository<Customer>,
   ) {}
 
-  async create(createCustomerDto: CreateCustomerDto): Promise<Customer> {
+  async create(
+    createCustomerDto: CreateCustomerDto,
+    storeId: string,
+  ): Promise<Customer> {
     await this.checkUnique(
+      storeId,
       createCustomerDto.identificationNumber,
       createCustomerDto.email,
     );
 
-    const customer = this.customersRepository.create(createCustomerDto);
+    const customer = this.customersRepository.create({
+      ...createCustomerDto,
+      storeId,
+    });
     return this.customersRepository.save(customer);
   }
 
-  async findAll(): Promise<Customer[]> {
-    return this.customersRepository.find();
+  async findAll(storeId: string): Promise<Customer[]> {
+    return this.customersRepository.find({ where: { storeId } });
   }
 
-  async findOne(id: string): Promise<Customer> {
-    const customer = await this.customersRepository.findOneBy({ id });
+  async findOne(id: string, storeId: string): Promise<Customer> {
+    const customer = await this.customersRepository.findOneBy({ id, storeId });
     if (!customer) {
       throw new NotFoundException(`Customer with id "${id}" not found`);
     }
@@ -40,12 +47,14 @@ export class CustomersService {
 
   async update(
     id: string,
+    storeId: string,
     updateCustomerDto: UpdateCustomerDto,
   ): Promise<Customer> {
-    const customer = await this.findOne(id);
+    const customer = await this.findOne(id, storeId);
 
     if (updateCustomerDto.identificationNumber || updateCustomerDto.email) {
       await this.checkUnique(
+        storeId,
         updateCustomerDto.identificationNumber,
         updateCustomerDto.email,
         id,
@@ -56,14 +65,14 @@ export class CustomersService {
     return this.customersRepository.save(customer);
   }
 
-  async remove(id: string): Promise<void> {
-    const customer = await this.findOne(id);
+  async remove(id: string, storeId: string): Promise<void> {
+    const customer = await this.findOne(id, storeId);
     await this.customersRepository.softRemove(customer);
   }
 
-  async restore(id: string): Promise<Customer> {
+  async restore(id: string, storeId: string): Promise<Customer> {
     const customer = await this.customersRepository.findOne({
-      where: { id },
+      where: { id, storeId },
       withDeleted: true,
     });
     if (!customer) {
@@ -73,16 +82,18 @@ export class CustomersService {
       throw new ConflictException('Customer is not deleted');
     }
     await this.customersRepository.restore(id);
-    return this.findOne(id);
+    return this.findOne(id, storeId);
   }
 
   private async checkUnique(
+    storeId: string,
     identificationNumber?: string,
     email?: string,
     excludeId?: string,
   ): Promise<void> {
     if (identificationNumber) {
       const byIdent = await this.customersRepository.findOneBy({
+        storeId,
         identificationNumber,
       });
       if (byIdent && byIdent.id !== excludeId) {
@@ -93,7 +104,10 @@ export class CustomersService {
     }
 
     if (email) {
-      const byEmail = await this.customersRepository.findOneBy({ email });
+      const byEmail = await this.customersRepository.findOneBy({
+        storeId,
+        email,
+      });
       if (byEmail && byEmail.id !== excludeId) {
         throw new ConflictException(
           `A customer with email "${email}" already exists`,

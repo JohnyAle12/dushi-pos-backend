@@ -3,7 +3,6 @@ import {
   ArrayMinSize,
   IsArray,
   IsEnum,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -45,10 +44,6 @@ export class CreateSaleDto {
   @MaxLength(20)
   @IsOptional()
   prefix?: string;
-
-  @IsString()
-  @IsNotEmpty()
-  userId: string;
 
   @IsUUID('4')
   @IsOptional()

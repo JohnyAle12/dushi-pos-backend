@@ -23,21 +23,27 @@ export class ProductsService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async create(createProductDto: CreateProductDto): Promise<Product> {
-    const product = this.productsRepository.create(createProductDto);
+  async create(
+    createProductDto: CreateProductDto,
+    storeId: string,
+  ): Promise<Product> {
+    const product = this.productsRepository.create({
+      ...createProductDto,
+      storeId,
+    });
     return this.productsRepository.save(product);
   }
 
-  async findAll(trackInventory?: boolean): Promise<Product[]> {
-    const where: any = {};
+  async findAll(storeId: string, trackInventory?: boolean): Promise<Product[]> {
+    const where: Record<string, unknown> = { storeId };
     if (trackInventory !== undefined) {
       where.trackInventory = trackInventory;
     }
     return this.productsRepository.find({ where });
   }
 
-  async findOne(id: string): Promise<Product> {
-    const product = await this.productsRepository.findOneBy({ id });
+  async findOne(id: string, storeId: string): Promise<Product> {
+    const product = await this.productsRepository.findOneBy({ id, storeId });
     if (!product) {
       throw new NotFoundException(`Product with id "${id}" not found`);
     }
@@ -46,24 +52,28 @@ export class ProductsService {
 
   async update(
     id: string,
+    storeId: string,
     updateProductDto: UpdateProductDto,
   ): Promise<Product> {
-    const product = await this.findOne(id);
+    const product = await this.findOne(id, storeId);
     Object.assign(product, updateProductDto);
     return this.productsRepository.save(product);
   }
 
-  async remove(id: string): Promise<void> {
-    const product = await this.findOne(id);
+  async remove(id: string, storeId: string): Promise<void> {
+    const product = await this.findOne(id, storeId);
     await this.productsRepository.softRemove(product);
   }
 
   async updateStock(
     productId: string,
+    storeId: string,
     updateStockDto: UpdateStockDto,
   ): Promise<{ product: Product; transaction: StockTransaction }> {
     return this.dataSource.transaction(async (manager) => {
-      const product = await manager.findOneBy(Product, { id: productId });
+      const product = await manager.findOne(Product, {
+        where: { id: productId, storeId },
+      });
       if (!product) {
         throw new NotFoundException(`Product with id "${productId}" not found`);
       }
@@ -105,17 +115,20 @@ export class ProductsService {
     });
   }
 
-  async findTransactions(productId: string): Promise<StockTransaction[]> {
-    await this.findOne(productId);
+  async findTransactions(
+    productId: string,
+    storeId: string,
+  ): Promise<StockTransaction[]> {
+    await this.findOne(productId, storeId);
     return this.stockTransactionsRepository.find({
       where: { productId },
       order: { createdAt: 'DESC' },
     });
   }
 
-  async restore(id: string): Promise<Product> {
+  async restore(id: string, storeId: string): Promise<Product> {
     const product = await this.productsRepository.findOne({
-      where: { id },
+      where: { id, storeId },
       withDeleted: true,
     });
     if (!product) {
@@ -125,6 +138,6 @@ export class ProductsService {
       throw new ConflictException('Product is not deleted');
     }
     await this.productsRepository.restore(id);
-    return this.findOne(id);
+    return this.findOne(id, storeId);
   }
 }

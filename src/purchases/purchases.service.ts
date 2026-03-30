@@ -12,17 +12,23 @@ export class PurchasesService {
     private readonly purchasesRepository: Repository<Purchase>,
   ) {}
 
-  async create(createPurchaseDto: CreatePurchaseDto): Promise<Purchase> {
-    const purchase = this.purchasesRepository.create(createPurchaseDto);
+  async create(
+    createPurchaseDto: CreatePurchaseDto,
+    storeId: string,
+  ): Promise<Purchase> {
+    const purchase = this.purchasesRepository.create({
+      ...createPurchaseDto,
+      storeId,
+    });
     return this.purchasesRepository.save(purchase);
   }
 
-  async findAll(): Promise<Purchase[]> {
-    return this.purchasesRepository.find();
+  async findAll(storeId: string): Promise<Purchase[]> {
+    return this.purchasesRepository.find({ where: { storeId } });
   }
 
-  async findOne(id: string): Promise<Purchase> {
-    const purchase = await this.purchasesRepository.findOneBy({ id });
+  async findOne(id: string, storeId: string): Promise<Purchase> {
+    const purchase = await this.purchasesRepository.findOneBy({ id, storeId });
     if (!purchase) {
       throw new NotFoundException(`Purchase with id "${id}" not found`);
     }
@@ -31,15 +37,16 @@ export class PurchasesService {
 
   async update(
     id: string,
+    storeId: string,
     updatePurchaseDto: UpdatePurchaseDto,
   ): Promise<Purchase> {
-    const purchase = await this.findOne(id);
+    const purchase = await this.findOne(id, storeId);
     Object.assign(purchase, updatePurchaseDto);
     return this.purchasesRepository.save(purchase);
   }
 
-  async remove(id: string): Promise<void> {
-    const purchase = await this.findOne(id);
+  async remove(id: string, storeId: string): Promise<void> {
+    const purchase = await this.findOne(id, storeId);
     await this.purchasesRepository.softRemove(purchase);
   }
 }
