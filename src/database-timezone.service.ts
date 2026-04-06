@@ -15,7 +15,7 @@ export class DatabaseTimezoneService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     const tz = this.config.get<string>('DB_TIMEZONE', '-05:00');
-    const q = `SET time_zone = ?`;
+    const q = `SET GLOBAL time_zone = ?`;
     try {
       // Ejecutar en varias conexiones del pool para que queden con la zona correcta
       const poolSize = 10;
