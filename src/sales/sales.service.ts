@@ -47,6 +47,7 @@ export class SalesService {
         .createQueryBuilder('sale')
         .where('sale.prefix = :prefix', { prefix })
         .andWhere('sale.store_id = :storeId', { storeId: auth.storeId })
+        .withDeleted()
         .select('MAX(sale.number)', 'max')
         .getRawOne<{ max: string | null }>()) ?? { max: null };
 
