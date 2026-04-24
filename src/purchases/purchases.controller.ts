@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -31,8 +32,20 @@ export class PurchasesController {
   }
 
   @Get()
-  findAll(@Req() req: { user: AuthUser }) {
-    return this.purchasesService.findAll(req.user.storeId);
+  findAll(
+    @Req() req: { user: AuthUser },
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.purchasesService.findAll(
+      req.user.storeId,
+      page ? parseInt(page, 10) : undefined,
+      limit ? parseInt(limit, 10) : undefined,
+      startDate,
+      endDate,
+    );
   }
 
   @Get(':id')
