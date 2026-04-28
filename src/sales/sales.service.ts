@@ -24,6 +24,24 @@ import { UpdateSaleDto } from './dto/update-sale.dto';
 import { SaleItem } from './entities/sale-item.entity';
 import { Sale } from './entities/sale.entity';
 
+type SaleListItem = {
+  id: string;
+  productId: string;
+  quantity: number;
+  total: number;
+  product: {
+    name: string;
+    price: number;
+    description: string;
+    category: string;
+  } | null;
+};
+
+type SaleListResponseItem = Omit<Sale, 'items'> & {
+  totalAfterDiscount: number;
+  items: SaleListItem[];
+};
+
 @Injectable()
 export class SalesService {
   constructor(
@@ -37,6 +55,34 @@ export class SalesService {
     private readonly usersRepository: Repository<User>,
     private readonly dataSource: DataSource,
   ) {}
+
+  private calculateTotalAfterDiscount(
+    total: number,
+    paymentMethod: PaymentMethod,
+  ): number {
+    const numericTotal = Number(total);
+
+    if (paymentMethod === PaymentMethod.RAPPI) {
+      return Number((numericTotal * (1 - 0.216)).toFixed(2));
+    }
+
+    if (paymentMethod === PaymentMethod.CARD) {
+      return Number((numericTotal - numericTotal * 0.0329 - 300).toFixed(2));
+    }
+
+    return numericTotal;
+  }
+
+  private getTotalAfterDiscountSql(
+    totalColumn: string,
+    paymentMethodColumn: string,
+  ): string {
+    return `CASE
+      WHEN ${paymentMethodColumn} = '${PaymentMethod.RAPPI}' THEN ${totalColumn} * (1 - 0.216)
+      WHEN ${paymentMethodColumn} = '${PaymentMethod.CARD}' THEN ${totalColumn} - (${totalColumn} * 0.0329 + 300)
+      ELSE ${totalColumn}
+    END`;
+  }
 
   async create(createSaleDto: CreateSaleDto, auth: AuthUser): Promise<Sale> {
     return this.dataSource.transaction(async (manager) => {
@@ -117,7 +163,7 @@ export class SalesService {
     endDate?: string,
     paymentMethod?: string,
   ): Promise<{
-    data: Sale[];
+    data: SaleListResponseItem[];
     meta: { total: number; page: number; limit: number; totalPages: number };
   }> {
     const where: Record<string, unknown> = { storeId };
@@ -157,6 +203,10 @@ export class SalesService {
 
     const data = sales.map((sale) => ({
       ...sale,
+      totalAfterDiscount: this.calculateTotalAfterDiscount(
+        Number(sale.total),
+        sale.paymentMethod,
+      ),
       items: sale.items?.map((item) => ({
         id: item.id,
         productId: item.productId,
@@ -171,7 +221,7 @@ export class SalesService {
             }
           : null,
       })),
-    })) as Sale[];
+    }));
 
     return {
       data,
@@ -191,8 +241,13 @@ export class SalesService {
     groupBy: 'day' | 'month',
     paymentMethod?: string,
   ): Promise<{
-    data: { period: string; total: number; count: number }[];
-    summary: { total: number; count: number };
+    data: {
+      period: string;
+      total: number;
+      totalAfterDiscount: number;
+      count: number;
+    }[];
+    summary: { total: number; totalAfterDiscount: number; count: number };
   }> {
     if (!startDate || !endDate) {
       throw new BadRequestException(
@@ -213,9 +268,15 @@ export class SalesService {
       }
     }
 
+    const totalAfterDiscountSql = this.getTotalAfterDiscountSql(
+      'sale.total',
+      'sale.payment_method',
+    );
+
     const qb = this.salesRepository
       .createQueryBuilder('sale')
-      .select('SUM(sale.total)', 'total')
+      .select(`SUM(${totalAfterDiscountSql})`, 'total')
+      .addSelect('SUM(sale.total)', 'totalAfterDiscount')
       .addSelect('COUNT(sale.id)', 'count')
       .where('sale.store_id = :storeId', { storeId })
       .andWhere('DATE(sale.created_at) >= :startDate', { startDate })
@@ -238,12 +299,14 @@ export class SalesService {
     const data = await qb.getRawMany<{
       period: string;
       total: string;
+      totalAfterDiscount: string;
       count: string;
     }>();
 
     const summaryQb = this.salesRepository
       .createQueryBuilder('sale')
-      .select('SUM(sale.total)', 'total')
+      .select(`SUM(${totalAfterDiscountSql})`, 'totalAfterDiscount')
+      .addSelect('SUM(sale.total)', 'total')
       .addSelect('COUNT(sale.id)', 'count')
       .where('sale.store_id = :storeId', { storeId })
       .andWhere('DATE(sale.created_at) >= :startDate', { startDate })
@@ -256,11 +319,15 @@ export class SalesService {
     }
     const summaryRow = await summaryQb.getRawOne<{
       total: string | null;
+      totalAfterDiscount: string | null;
       count: string;
     }>();
 
     const summary = {
       total: summaryRow?.total ? Number(summaryRow.total) : 0,
+      totalAfterDiscount: summaryRow?.totalAfterDiscount
+        ? Number(summaryRow.totalAfterDiscount)
+        : 0,
       count: summaryRow?.count ? Number(summaryRow.count) : 0,
     };
 
@@ -268,6 +335,7 @@ export class SalesService {
       data: data.map((row) => ({
         period: row.period,
         total: Number(row.total),
+        totalAfterDiscount: Number(row.totalAfterDiscount),
         count: Number(row.count),
       })),
       summary,
