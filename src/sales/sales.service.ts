@@ -67,7 +67,14 @@ export class SalesService {
     }
 
     if (paymentMethod === PaymentMethod.CARD) {
-      return Number((numericTotal - numericTotal * 0.0329 - 300).toFixed(2));
+      return Number(
+        (
+          numericTotal -
+          numericTotal * 0.0329 -
+          numericTotal * 0.00414 -
+          300
+        ).toFixed(2),
+      );
     }
 
     return numericTotal;
@@ -79,7 +86,7 @@ export class SalesService {
   ): string {
     return `CASE
       WHEN ${paymentMethodColumn} = '${PaymentMethod.RAPPI}' THEN ${totalColumn} * (1 - 0.216)
-      WHEN ${paymentMethodColumn} = '${PaymentMethod.CARD}' THEN ${totalColumn} - (${totalColumn} * 0.0329 + 300)
+      WHEN ${paymentMethodColumn} = '${PaymentMethod.CARD}' THEN ${totalColumn} - (${totalColumn} * 0.00414) - (${totalColumn} * 0.0329 + 300)
       ELSE ${totalColumn}
     END`;
   }
