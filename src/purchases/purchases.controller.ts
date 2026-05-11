@@ -50,6 +50,21 @@ export class PurchasesController {
     );
   }
 
+  @Get('summary')
+  getSummary(
+    @Req() req: { user: AuthUser },
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.purchasesService.getSummary(
+      req.user.storeId,
+      startDate,
+      endDate,
+      search,
+    );
+  }
+
   @Get(':id')
   findOne(@Req() req: { user: AuthUser }, @Param('id') id: string) {
     return this.purchasesService.findOne(id, req.user.storeId);

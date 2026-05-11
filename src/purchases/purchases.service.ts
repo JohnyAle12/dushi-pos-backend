@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { UpdatePurchaseDto } from './dto/update-purchase.dto';
 import { Purchase } from './entities/purchase.entity';
@@ -44,25 +44,88 @@ export class PurchasesService {
     if (!Number.isInteger(limit) || limit < 1) {
       throw new BadRequestException('limit must be a positive integer');
     }
-    if (startDate && !this.isValidDateFormat(startDate)) {
-      throw new BadRequestException('startDate must use format YYYY-MM-DD');
-    }
-    if (endDate && !this.isValidDateFormat(endDate)) {
-      throw new BadRequestException('endDate must use format YYYY-MM-DD');
-    }
-    if (startDate && endDate && startDate > endDate) {
-      throw new BadRequestException(
-        'startDate must be before or equal to endDate',
-      );
-    }
+    this.assertPurchaseFiltersValid(startDate, endDate);
 
     const qb = this.purchasesRepository
       .createQueryBuilder('purchase')
-      .where('purchase.storeId = :storeId', { storeId })
-      .andWhere('purchase.deletedAt IS NULL')
       .orderBy('purchase.date', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
+
+    this.applyPurchaseListFilters(qb, storeId, startDate, endDate, search);
+
+    const [data, total] = await qb.getManyAndCount();
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getSummary(
+    storeId: string,
+    startDate?: string,
+    endDate?: string,
+    search?: string,
+  ): Promise<{ invoiceCount: number; totalSpent: number }> {
+    this.assertPurchaseFiltersValid(startDate, endDate);
+
+    const qb = this.purchasesRepository
+      .createQueryBuilder('purchase')
+      .select('COUNT(purchase.id)', 'invoiceCount')
+      .addSelect('COALESCE(SUM(purchase.total), 0)', 'totalSpent');
+
+    this.applyPurchaseListFilters(qb, storeId, startDate, endDate, search);
+
+    const row = await qb.getRawOne<{
+      invoiceCount: string;
+      totalSpent: string;
+    }>();
+
+    return {
+      invoiceCount: Number.parseInt(row.invoiceCount, 10),
+      totalSpent: Number.parseFloat(row.totalSpent),
+    };
+  }
+
+  async findOne(id: string, storeId: string): Promise<Purchase> {
+    const purchase = await this.purchasesRepository.findOneBy({ id, storeId });
+    if (!purchase) {
+      throw new NotFoundException(`Purchase with id "${id}" not found`);
+    }
+    return purchase;
+  }
+
+  async update(
+    id: string,
+    storeId: string,
+    updatePurchaseDto: UpdatePurchaseDto,
+  ): Promise<Purchase> {
+    const purchase = await this.findOne(id, storeId);
+    Object.assign(purchase, updatePurchaseDto);
+    return this.purchasesRepository.save(purchase);
+  }
+
+  async remove(id: string, storeId: string): Promise<void> {
+    const purchase = await this.findOne(id, storeId);
+    await this.purchasesRepository.softRemove(purchase);
+  }
+
+  private applyPurchaseListFilters(
+    qb: SelectQueryBuilder<Purchase>,
+    storeId: string,
+    startDate?: string,
+    endDate?: string,
+    search?: string,
+  ): void {
+    qb.where('purchase.storeId = :storeId', { storeId }).andWhere(
+      'purchase.deletedAt IS NULL',
+    );
 
     if (startDate && endDate) {
       qb.andWhere('purchase.date BETWEEN :startDate AND :endDate', {
@@ -90,41 +153,23 @@ export class PurchasesService {
         }),
       );
     }
-
-    const [data, total] = await qb.getManyAndCount();
-
-    return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
   }
 
-  async findOne(id: string, storeId: string): Promise<Purchase> {
-    const purchase = await this.purchasesRepository.findOneBy({ id, storeId });
-    if (!purchase) {
-      throw new NotFoundException(`Purchase with id "${id}" not found`);
+  private assertPurchaseFiltersValid(
+    startDate?: string,
+    endDate?: string,
+  ): void {
+    if (startDate && !this.isValidDateFormat(startDate)) {
+      throw new BadRequestException('startDate must use format YYYY-MM-DD');
     }
-    return purchase;
-  }
-
-  async update(
-    id: string,
-    storeId: string,
-    updatePurchaseDto: UpdatePurchaseDto,
-  ): Promise<Purchase> {
-    const purchase = await this.findOne(id, storeId);
-    Object.assign(purchase, updatePurchaseDto);
-    return this.purchasesRepository.save(purchase);
-  }
-
-  async remove(id: string, storeId: string): Promise<void> {
-    const purchase = await this.findOne(id, storeId);
-    await this.purchasesRepository.softRemove(purchase);
+    if (endDate && !this.isValidDateFormat(endDate)) {
+      throw new BadRequestException('endDate must use format YYYY-MM-DD');
+    }
+    if (startDate && endDate && startDate > endDate) {
+      throw new BadRequestException(
+        'startDate must be before or equal to endDate',
+      );
+    }
   }
 
   private isValidDateFormat(value: string): boolean {
