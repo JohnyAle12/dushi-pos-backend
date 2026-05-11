@@ -38,6 +38,7 @@ export class PurchasesController {
     @Query('limit') limit?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('search') search?: string,
   ) {
     return this.purchasesService.findAll(
       req.user.storeId,
@@ -45,6 +46,7 @@ export class PurchasesController {
       limit ? parseInt(limit, 10) : undefined,
       startDate,
       endDate,
+      search,
     );
   }
 

@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { UpdatePurchaseDto } from './dto/update-purchase.dto';
 import { Purchase } from './entities/purchase.entity';
@@ -33,6 +33,7 @@ export class PurchasesService {
     limit = 10,
     startDate?: string,
     endDate?: string,
+    search?: string,
   ): Promise<{
     data: Purchase[];
     meta: { total: number; page: number; limit: number; totalPages: number };
@@ -55,22 +56,42 @@ export class PurchasesService {
       );
     }
 
-    const where: Record<string, unknown> = { storeId };
+    const qb = this.purchasesRepository
+      .createQueryBuilder('purchase')
+      .where('purchase.storeId = :storeId', { storeId })
+      .andWhere('purchase.deletedAt IS NULL')
+      .orderBy('purchase.date', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
     if (startDate && endDate) {
-      where.date = Between(startDate, endDate);
+      qb.andWhere('purchase.date BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
     } else if (startDate) {
-      where.date = MoreThanOrEqual(startDate);
+      qb.andWhere('purchase.date >= :startDate', { startDate });
     } else if (endDate) {
-      where.date = LessThanOrEqual(endDate);
+      qb.andWhere('purchase.date <= :endDate', { endDate });
     }
 
-    const [data, total] = await this.purchasesRepository.findAndCount({
-      where,
-      order: { date: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const trimmedSearch = search?.trim();
+    if (trimmedSearch) {
+      const pattern = `%${trimmedSearch}%`;
+      qb.andWhere(
+        new Brackets((sub) => {
+          sub
+            .where('purchase.supplier LIKE :textSearch', {
+              textSearch: pattern,
+            })
+            .orWhere('purchase.observations LIKE :textSearch', {
+              textSearch: pattern,
+            });
+        }),
+      );
+    }
+
+    const [data, total] = await qb.getManyAndCount();
 
     return {
       data,
